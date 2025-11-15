@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Server Monitoring</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .server-card { 
+            border: 2px solid #4CAF50; 
+            border-radius: 10px; 
+            padding: 15px; 
+            margin: 10px; 
+            background-color: #f9f9f9;
+            max-width: 400px;
+        }
+        .metric { margin: 5px 0; }
+        .warning { color: orange; font-weight: bold; }
+        .critical { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🖥️ Server Monitoring Dashboard</h1>
+    
+    <div id="servers-container">
+        <p>Warte auf Daten...</p>
+    </div>
+
+    <script>
+        async function loadMetrics() {
+            try {
+                const response = await fetch('/api/metrics/server-1');
+                const metrics = await response.json();
+                
+                if (metrics.length > 0) {
+                    updateDashboard(metrics);
+                } else {
+                    document.getElementById('servers-container').innerHTML = 
+                        '<p>Keine Daten vom Server empfangen</p>';
+                }
+            } catch (error) {
+                console.error('Fehler:', error);
+            }
+        }
+
+        function updateDashboard(metrics) {
+            const latest = metrics[metrics.length - 1];
+            const timestamp = new Date(latest.timestamp).toLocaleString();
+            
+            // Status bestimmen
+            const status = latest.cpu_percent > 80 ? 'warning' : 
+                          latest.cpu_percent > 90 ? 'critical' : 'normal';
+
+            let diskInfo = '';
+            for (const [mountpoint, usage] of Object.entries(latest.disk_usage)) {
+                diskInfo += `<div class="metric">
+                    Disk ${mountpoint}: ${usage.percent}% (${usage.used_gb} GB)
+                </div>`;
+            }
+
+            document.getElementById('servers-container').innerHTML = `
+                <div class="server-card">
+                    <h2>✅ Server-1 (Online)</h2>
+                    <div class="metric ${status}">CPU: ${latest.cpu_percent}%</div>
+                    <div class="metric">RAM: ${latest.ram_percent}% (${latest.ram_used_gb} GB)</div>
+                    ${diskInfo}
+                    <div class="metric"><small>Letzte Aktualisierung: ${timestamp}</small></div>
+                </div>
+            `;
+        }
+
+        // Alle 5 Sekunden aktualisieren
+        setInterval(loadMetrics, 5000);
+        loadMetrics();
+    </script>
+</body>
+</html>
